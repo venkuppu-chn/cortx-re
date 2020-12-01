@@ -71,7 +71,7 @@ def send_build_request(node):
         else:
             print('Build host {0} received build False. Expected to receive True'.format(node))
             print('Will not proceed further')
-            exit(0)
+            exit(1)
     else:
         print('Build request for {0} host failed with status code {1}, expected 200'.format(node, response.status_code))
         print('Will not proceed further')
