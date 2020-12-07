@@ -1,0 +1,8 @@
+---
+
+required_vars:
+  - HOST
+  - CLUSTER_PASS
+  - CSM_UI_USERNAME
+  - CSM_UI_PASSWORD
+  - CORTX_UPDATE_ISO

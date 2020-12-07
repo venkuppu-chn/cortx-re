@@ -1,0 +1,12 @@
+---
+ - hosts: localhost
+   gather_facts: True
+   become: yes
+   vars_files:
+     - roles/sw_update/vars/config.yml 
+   roles:
+      - sw_update
+
+
+
+     

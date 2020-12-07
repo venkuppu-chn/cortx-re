@@ -1,0 +1,98 @@
+---
+
+# Validate input variables
+- name: "1 : Validate the required input arguments for this playbook"
+  fail: msg="Variable '{{ item }}' is not defined"
+  when: item not in vars
+  with_items: "{{required_vars}}"
+
+- name: "2 : Install tools [expect, curl, bc, jq] on localhost"
+  yum:
+    name: [ 'expect', 'ipmitool', 'curl', 'bc', 'jq' ]
+    state: latest
+    update_cache: yes
+
+# Enable passwordless SSH between controller node and test node
+- include: passwordless_authentication.yml
+
+- name: "3 : Get PCS Status - Before Update"
+  shell: "pcs status 2>&1 | tee pcs_status_before_update.log"
+  register: pcs_status_before_update_out
+  delegate_to: "srvnode-1"
+
+- debug: msg=" PCS Status [ Before Update ]  = {{ pcs_status_before_update_out.stdout }}"
+
+# Get release version
+- name: "4 : Get Provisioner Release Version Info - Before Update"
+  shell: "provisioner get_release_version 2>&1 | tee release_build_version_before_update.log"
+  register: provisioner_get_release_version_before_sw_out
+  delegate_to: "srvnode-1"
+
+- debug: msg=" Release Version [ Before Update ]  = {{ provisioner_get_release_version_before_sw_out.stdout }}"
+
+- name: "5 : Get Provisioner Release Build - Before Update"
+  shell: "provisioner get_release_version | jq -r '.BUILD'"
+  register: cortx_build_version_before_sw_update_out
+  delegate_to: "srvnode-1"
+
+- set_fact:
+    cortx_build_version_before_sw_update: "{{ cortx_build_version_before_sw_update_out.stdout }}"
+
+# Get MGMT VIP
+- name: "6 : Get Management VIP"
+  shell: "salt-call pillar.get cluster:mgmt_vip --out json | jq -r '.local'"
+  register: mgmt_vip_out
+  delegate_to: "srvnode-1"
+
+- set_fact:
+    MGMT_IP: "{{ mgmt_vip_out.stdout }}"
+
+- debug: msg="Management VIP = {{ MGMT_IP }}"
+
+- name: "7 :Get Domain"
+  shell: echo {{ HOST }} | awk -F. '{$1="";OFS="." ; print $0}' | sed 's/^.//'
+  register: cortx_domain_out
+  delegate_to: "srvnode-1"
+
+- set_fact:
+    DNS_SERVER_DOMAIN: "{{ cortx_domain_out.stdout }}"
+
+- name: "8 : Get DNS Name Server"
+  shell: grep "nameserver" /etc/resolv.conf  | cut -c12- | sed ':a;N;$!ba;s/\n/,/g'
+  register: name_server_out
+  delegate_to: "srvnode-1"
+
+- set_fact:
+    DNS_NAME_SERVER: "{{ name_server_out.stdout }}"
+
+# Perform Software Update
+- name: "9 : Execute SW Update" 
+  shell: "python -u {{ role_path }}/files/cortx_sw_update.py -ip {{ MGMT_IP }} -iso {{ CORTX_UPDATE_ISO }} -un {{ CSM_UI_USERNAME }} -pw {{ CSM_UI_PASSWORD }} -dns {{ DNS_SERVER_DOMAIN }} -ns {{ DNS_NAME_SERVER }}  2>&1 | tee sw_update.log"
+
+# Get Release Version
+- name: "10 : Get Provisioner Release Version Info - After Update"
+  shell: "provisioner get_release_version 2>&1 | tee release_build_version_after_update.log"
+  register: provisioner_get_release_version_after_sw_out
+  delegate_to: "srvnode-1"
+
+- debug: msg=" Release Version [ After Update ]  = {{ provisioner_get_release_version_after_sw_out.stdout }}"
+
+- name: "11 : Get Provisioner Release Build - After Update"
+  shell: "provisioner get_release_version | jq -r '.BUILD'"
+  register: cortx_build_version_after_sw_update_out
+  delegate_to: "srvnode-1"
+
+- set_fact:
+    cortx_build_version_after_sw_update: "{{ cortx_build_version_after_sw_update_out.stdout }}"
+
+- name: "12 : Validate release build version after update"
+  fail:
+    msg: "Release build version not changed after update please check the system manually"
+  when: cortx_build_version_after_sw_update == cortx_build_version_before_sw_update
+
+- name: "13 : Get PCS Status - After Update"
+  shell: "pcs status 2>&1 | tee pcs_status_after_update.log"
+  register: pcs_status_after_update_out
+  delegate_to: "srvnode-1"
+
+- debug: msg=" PCS Status [ After Update ]  = {{ pcs_status_after_update_out.stdout }}"
