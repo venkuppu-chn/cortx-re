@@ -13,10 +13,6 @@ pipeline {
         booleanParam(name: 'FORCE', defaultValue: false, description: 'Unlock & Cleanup all the offline Nodes irespective to MAXIMUM_ALLOWED_TIME_TO_HOLD_NODE')
     }	
 
-    triggers {
-        cron('H */2 * * *')
-    }
-
     options {
         timeout(time: 5, unit: 'MINUTES')
         timestamps()
@@ -65,13 +61,13 @@ def enableOfflineVM(nodeLabel) {
                     
                     computer.setTemporarilyOffline(false, computer.getOfflineCause())
 
-					build job: 'Cortx-Automation/Deployment/VM-Cleanup-MultiNode', wait: false, parameters: [string(name: 'NODE_LABEL', value: "${node.getNodeName()}")]            
+					build job: 'Cortx-Automation/Deployment/VM-Cleanup-MultiNode', wait: false, parameters: [string(name: 'DEPLOYMENT_NODE_LABEL', value: "${node.getNodeName()}")]            
 
                 }
 
             } else if ( computer.countBusy()==0 )  {  // This is not part of this job scope, but still it cleanups the online nodes
 			
-				build job: 'Cortx-Automation/Deployment/VM-Cleanup-MultiNode', wait: false, parameters: [string(name: 'NODE_LABEL', value: "${node.getNodeName()}")]            
+				build job: 'Cortx-Automation/Deployment/VM-Cleanup-MultiNode', wait: false, parameters: [string(name: 'DEPLOYMENT_NODE_LABEL', value: "${node.getNodeName()}")]            
 			}
 
         }
